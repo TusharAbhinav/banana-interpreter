@@ -186,15 +186,18 @@ func TestParsingPrefixExpressions(t *testing.T) {
 		}
 	}
 }
+
 // Type Assertion in Go
 //
 // A type assertion checks if an interface value contains a specific type
 // and extracts that typed value. The syntax is:
-//     value, ok := interfaceValue.(Type)
+//
+//	value, ok := interfaceValue.(Type)
 //
 // For example:
-//     integ, ok := il.(*ast.IntegerLiteral)
-// 
+//
+//	integ, ok := il.(*ast.IntegerLiteral)
+//
 // This checks if 'il' contains a *ast.IntegerLiteral:
 // - If true: integ gets the value and ok=true
 // - If false: integ=nil and ok=false
@@ -232,33 +235,66 @@ func TestParsingInfixExpressions(t *testing.T) {
 		{"5 == 5;", 5, "==", 5},
 		{"5 != 5;", 5, "!=", 5},
 	}
-		for _, tt := range infixTests {
-			l := lexer.New(tt.input)
-			p := parser.New(l)
-			program := p.ParseProgram()
-			checkParserErrors(t, p)
-			if len(program.Statements) != 1 {
-				t.Fatalf("program.Statements does not contain %d statements. got=%d\n",
-					1, len(program.Statements))
-			}
-			stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
-			if !ok {
-				t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T",
-					program.Statements[0])
-			}
-			exp, ok := stmt.Expression.(*ast.InfixExpression)
-			if !ok {
-				t.Fatalf("exp is not ast.InfixExpression. got=%T", stmt.Expression)
-			}
-			if !testIntegerLiteral(t, exp.Left, tt.leftValue) {
-				return
-			}
-			if exp.Operator != tt.operator {
-				t.Fatalf("exp.Operator is not '%s'. got=%s",
-					tt.operator, exp.Operator)
-			}
-			if !testIntegerLiteral(t, exp.Right, tt.rightValue) {
-				return
-			}
+	for _, tt := range infixTests {
+		l := lexer.New(tt.input)
+		p := parser.New(l)
+		program := p.ParseProgram()
+		checkParserErrors(t, p)
+		if len(program.Statements) != 1 {
+			t.Fatalf("program.Statements does not contain %d statements. got=%d\n",
+				1, len(program.Statements))
+		}
+		stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
+		if !ok {
+			t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T",
+				program.Statements[0])
+		}
+		exp, ok := stmt.Expression.(*ast.InfixExpression)
+		if !ok {
+			t.Fatalf("exp is not ast.InfixExpression. got=%T", stmt.Expression)
+		}
+		if !testIntegerLiteral(t, exp.Left, tt.leftValue) {
+			return
+		}
+		if exp.Operator != tt.operator {
+			t.Fatalf("exp.Operator is not '%s'. got=%s",
+				tt.operator, exp.Operator)
+		}
+		if !testIntegerLiteral(t, exp.Right, tt.rightValue) {
+			return
 		}
 	}
+}
+func TestOperatorPrecedenceParsing(t *testing.T) {
+	precedenceTests := []struct {
+		input    string
+		expected string
+	}{
+		{"-a * b", "((-a) * b)"},
+		{"!a + b", "((!a) + b)"},
+		{"a + b + c", "((a + b) + c)"},
+		{"a + b - c", "((a + b) - c)"},
+		{"a * b * c", "((a * b) * c)"},
+		{"a * b / c", "((a * b) / c)"},
+		{"a + b / c", "(a + (b / c))"},
+		{"a + b * c", "(a + (b * c))"},
+	}
+	for _, tt := range precedenceTests {
+		l := lexer.New(tt.input)
+		p := parser.New(l)
+		program := p.ParseProgram()
+		checkParserErrors(t, p)
+		if len(program.Statements) != 1 {
+			t.Fatalf("program.Statements does not contain %d statements. got=%d\n",
+				1, len(program.Statements))
+		}
+		stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
+		if !ok {
+			t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T",
+				program.Statements[0])
+		}
+		if stmt.String() != tt.expected {
+			t.Errorf("expected=%q, got=%q", tt.expected, stmt.String())
+		}
+	}
+}
